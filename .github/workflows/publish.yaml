@@ -1,0 +1,33 @@
+name: Publish Python Package
+
+on:
+  push:
+    # any tag that starts with “v”, e.g. v0.2.0
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install build tools
+        run: pip install build twine
+
+      - name: Build distributions
+        run: python -m build
+
+      - name: Publish to GitHub Packages
+        env:
+          TWINE_USERNAME: __token__            # this literal value
+          TWINE_PASSWORD: ${{ secrets.GH_PYPI_TOKEN }}
+        run: |
+          twine upload \
+            --repository-url https://upload.pypi.github.io/${{ github.repository_owner }}/ \
+            dist/*

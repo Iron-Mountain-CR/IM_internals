@@ -73,7 +73,8 @@ Thank you for considering contributing to **im-internals**, our internal helper 
   fix: handle timeout in API client
   docs: update README with new CLI options
   ```
-- **Signed-off-by**: At the end of each commit message, include a Signed-off-by: trailer with your name and email, for example:
+### **Signed-off-by**: 
+- At the end of each commit message, include a `Signed-off-by:` trailer with your name and email, for example:
   ```text
   Signed-off-by: Ivan Bilej <ivan.bilej@ironmountain.com>
   ```
@@ -89,7 +90,33 @@ Thank you for considering contributing to **im-internals**, our internal helper 
   ```markdown
   git config --global format.signoff true
   ```
-- **Pull Request**:
+
+### Verifying Signed-off-by
+- Run one of these GIT commands:
+  - Verifies local only for this repo
+    ```markdown
+    git config --get format.signoff
+    ```
+  - Verifies the global signoff
+    ```markdown
+    git config --get --global format.signoff
+    ```
+  If it prints `true`, you've enabled the signoff
+
+- OR Inspect the latest commit:
+  ```markdown
+  git log -1 --pretty=format:"%B" HEAD
+  ```
+  Ensure it ends with your `Signed-off-by:` trailer
+- Test with an empty commit:
+  ```markdown
+  git commit --allow-empty -s -m "test: verifying signoff"
+  git show -1
+  git reset --hard HEAD~1
+  ```
+  This lets you verify signoff without impacting your branch
+
+### **Pull Request**:
   1. Reference the issue number in the PR title or description.  
   2. Describe the change, motivation, and any relevant details.  
   3. Ensure all checks (lint, tests, type checks) pass.  
