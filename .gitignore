@@ -1,0 +1,72 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+dist/
+eggs/
+*.egg-info/
+.eggs/
+
+# Virtual environment directories
+venv/
+.env/
+ENV/
+env/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+
+# IDE/editor directories and files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Configuration files
+config.yaml
+
+# Logs and temporary files
+*.log
+/tmp/
+
+# SFTP key files
+id_rsa
+id_rsa.pub
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Sanity checks
+*.bak
+*.swp
+
+# SQLite databases
+*.sqlite3
+
+# JetBrains IDE
+*.iml
+out/

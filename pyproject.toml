@@ -1,0 +1,51 @@
+# pyproject.toml for im-internals — *internal-only helper toolkit*
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "im-internals"                      # distribution name (pip install im-internals)
+version = "0.2.0"
+description = "Internal helper toolkit for DB, (S)FTP, API, e-mail and other utilities."
+readme = "README.md"
+requires-python = ">=3.10"
+
+# author / maintainer metadata
+authors = [
+  { name = "Ivan Bilej", email = "ivan.bilej@ironmountain.com" }
+]
+
+# the private company-internal licence file lives at the project root
+license = { file = "LICENSE" }
+
+# mark as proprietary so PyPI classifiers do not mislead
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: Other/Proprietary License",
+  "Operating System :: OS Independent",
+  "Private :: Do Not Upload",
+]
+
+keywords = ["internal", "helpers", "toolkit", "sftp", "database", "api"]
+
+# runtime dependencies (stdlib modules need **not** be listed)
+dependencies = [
+  "requests>=2",
+  "paramiko>=3",
+  "pyodbc>=5",
+  "tenacity>=8",
+  "pypdf>=1",
+]
+
+[project.entry-points.console_scripts]
+cfg-commands = "cfg_commands:cli"
+
+[project.urls]
+Source  = "https://github.com/<company>/im-internals"
+Tracker = "https://github.com/<company>/im-internals/issues"
+
+# setuptools-specific knobs
+[tool.setuptools]
+packages = ["im_internals"]
+include-package-data = true
