@@ -1,0 +1,37 @@
+site_name: "IM_internals"
+
+theme:
+  name: "material"
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          # point at your package
+          paths:
+            - im_internals
+          options:
+            # parse ReST field-list style (:param:, :return:, etc.)
+            docstring_style: sphinx            # ← key change
+            # render each section as a nice table
+            docstring_section_style: table     # ← optional, but recommended
+            # other goodies
+            show_source: true
+            show_root_full_path: true
+
+
+nav:
+  - Home: index.md
+  - API Reference:
+      - API Module: api/api.md
+      - CFG Commands Module: api/cfg_commands.md
+      - Email Module: api/email.md
+      - File Module: api/file.md
+      - Folder Module: api/folder.md
+      - FTP Module: api/ftp.md
+      - Sanitize Module: api/sanitize.md
+      - SFTP Module: api/sftp.md
+      - SQL Module: api/sql.md
+      - Transfer Module: api/transfer.md
+      # …add one page per module or one big “api.md”
