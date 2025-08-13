@@ -6,6 +6,10 @@ All notable changes. to **im-internals** will be documented in this file followi
 - (Future enhancements and fixes)
 
 
+## [0.2.2] - 2025-08-14
+- Changed name of the package from "im-internals" -> "im_internals"
+
+
 ## [0.2.1] - 2025-06-11
 ### Added
 - Tests from `API` up to `SANITIZE`. Still needs tests for `SFTP, SQL, TRANSFER`
