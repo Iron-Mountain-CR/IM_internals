@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "im_internals"                      # distribution name (pip install im-internals)
-version = "0.3.0"
+version = "0.3.1"
 description = "Internal helper toolkit for DB, (S)FTP, API, e-mail and other utilities."
 readme = "README.md"
 requires-python = ">=3.10"
