@@ -23,11 +23,9 @@ jobs:
       - name: Build distributions
         run: python -m build
 
-      - name: Publish to GitHub Packages
+      - name: Create GitHub Release and upload wheel
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/*
         env:
-          TWINE_USERNAME: __token__            # this literal value
-          TWINE_PASSWORD: ${{ secrets.GH_PYPI_TOKEN }}
-        run: |
-          twine upload \
-            --repository-url https://upload.pypi.github.io/${{ github.repository_owner }}/ \
-            dist/*
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
