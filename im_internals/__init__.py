@@ -13,6 +13,7 @@ __all__ = [
     "file",
     "folder",
     "ftp",
+    "logging",
     "sanitize",
     "sftp",
     "sql",

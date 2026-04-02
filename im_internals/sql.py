@@ -1,11 +1,11 @@
-import pyodbc
 import logging
+import pyodbc
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential, before_sleep_log
 
+from . import logging as pl
 
-# Logger for retry events
-logger = logging.getLogger(__name__)
-
+# Standard logger kept solely for tenacity's before_sleep_log (requires stdlib Logger)
+_tenacity_logger = logging.getLogger(__name__)
 
 # Retry decorator for SQL operations using Tenacity
 sql_retry = retry(
@@ -13,20 +13,13 @@ sql_retry = retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=3, max=10),
     reraise=True,
-    before_sleep=before_sleep_log(logger, logging.WARNING)
+    before_sleep=before_sleep_log(_tenacity_logger, logging.WARNING)
 )
 
 
 class SqlDatabase:
     """
     A class to manage connections and operations with a SQL database using `pyodbc`.
-
-    The `SqlDatabase` class provides methods for executing SQL queries, calling stored procedures, and retrieving
-    metadata such as column positions. It maintains an active database connection and cursor for managing transactions.
-
-    **Attributes**:
-        - **sql_connection** (`pyodbc.Connection`): The active SQL database connection.
-        - **sql_cursor** (`pyodbc.Cursor`): The cursor for executing SQL queries.
 
     :param sql_server: The hostname or IP address of the SQL server.
     :type sql_server: str
@@ -47,8 +40,6 @@ class SqlDatabase:
         """
         Initializes the SQLDatabase class with the given SQL connection details.
 
-        Establishes a connection to the SQL server using the provided details and creates a cursor for executing queries.
-
         :param sql_server: The hostname or IP address of the SQL server.
         :type sql_server: str
         :param sql_database: The name of the SQL database.
@@ -62,40 +53,28 @@ class SqlDatabase:
         :param sql_driver: The ODBC driver name for SQL connection.
         :type sql_driver: str
         """
-
         self.sql_connection = pyodbc.connect(f'DRIVER={sql_driver};'\
                                              f'SERVER={sql_server};'\
                                              f'DATABASE={sql_database};'\
                                              f'UID={sql_user};'\
                                              f'PWD={sql_password};'\
                                              f'port={sql_port};')
-        # self.sql_connection.setdecoding(pyodbc.SQL_CHAR, encoding='Czech_CI_AS')
-        # self.sql_connection.setdecoding(pyodbc.SQL_WCHAR, encoding='Czech_CI_AS')
-        # self.sql_connection.setencoding(encoding='Czech_CI_AS')
         self.sql_cursor = self.sql_connection.cursor()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
         Closes the SQL connection and logs any exception details if raised.
 
-        This method is automatically called upon exit, ensuring the connection is closed properly. If any exceptions
-        occur during the class's usage, they are logged using the `logging` module.
-
         :param exc_type: Type of the exception.
-        :type exc_type: Exception
         :param exc_val: Value of the exception.
-        :type exc_val: Exception
         :param exc_tb: Traceback details of the exception.
-        :type exc_tb: traceback
         """
-
-        logger = logging.getLogger("SQL_CLASS_ERROR")
         self.sql_connection.close()
 
         if exc_type is not None and exc_val is not None and exc_tb is not None:
-            logger.error(f"Exception Type: {exc_type}")
-            logger.error(f"Exception Value: {exc_val}")
-            logger.error(f"Exception Traceback: {exc_tb}")
+            pl.error(f"Exception Type: {exc_type}")
+            pl.error(f"Exception Value: {exc_val}")
+            pl.error(f"Exception Traceback: {exc_tb}")
 
     @property
     def connection(self):
@@ -105,7 +84,6 @@ class SqlDatabase:
         :return: The active SQL connection object.
         :rtype: pyodbc.Connection
         """
-
         return self.sql_connection
 
     @property
@@ -116,16 +94,12 @@ class SqlDatabase:
         :return: The SQL cursor object.
         :rtype: pyodbc.Cursor
         """
-
         return self.sql_cursor
 
     def commit(self):
         """
         Commits the current transaction to the SQL database.
-
-        This method ensures that all changes made by the previous queries are saved in the database.
         """
-
         self.connection.commit()
 
     def execute(self, sql, params=None):
@@ -137,7 +111,6 @@ class SqlDatabase:
         :param params: Optional, a tuple of parameters to bind to the SQL query.
         :type params: tuple, optional
         """
-
         self.cursor.execute(sql, params or ())
 
     def fetchall(self):
@@ -147,7 +120,6 @@ class SqlDatabase:
         :return: A list of rows from the query result.
         :rtype: list
         """
-
         return self.cursor.fetchall()
 
     def fetchone(self):
@@ -157,7 +129,6 @@ class SqlDatabase:
         :return: The first row from the query result.
         :rtype: Any
         """
-
         return self.cursor.fetchone()
 
     @sql_retry
@@ -172,14 +143,13 @@ class SqlDatabase:
         :return: A list of rows from the query result.
         :rtype: list
         """
-
         self.cursor.execute(sql, params or ())
         return self.fetchall()
 
     @sql_retry
     def rollback(self):
         """
-        Rollback any pending transaction
+        Rollback any pending transaction.
         """
         self.connection.rollback()
 
@@ -189,8 +159,6 @@ class SqlDatabase:
         """
         Calls a SQL stored procedure with specified parameters.
 
-        This method executes a stored procedure on the SQL server using the provided connection string and parameters.
-
         :param sql_connection_text: The SQL connection string.
         :type sql_connection_text: str
         :param procedure_name: The name of the stored procedure to call.
@@ -199,7 +167,6 @@ class SqlDatabase:
         :return: The results of the stored procedure in a list of tuples.
         :rtype: list
         """
-
         count = 0
         sql_variables = ""
 
@@ -234,7 +201,6 @@ class SqlDatabase:
         :rtype: dict
         :raises ValueError: If `columns` is not a string or a list.
         """
-
         column_positions = {}
 
         for column_info in self.sql_cursor.columns(table=table):

@@ -1,6 +1,7 @@
 from pathlib import Path
-import logging
-from im_internals.sanitize import sanitize_string
+
+from . import logging as pl
+from .sanitize import sanitize_string
 
 
 class Folder:
@@ -24,7 +25,7 @@ class Folder:
             self.parent = self.path.parent
             self.name = self.path.name
         except Exception as e:
-            logging.error(f"Error initializing Folder for {folder_path}: {e}")
+            pl.error(f"Error initializing Folder for {folder_path}: {e}")
             raise
 
     @property
@@ -45,7 +46,7 @@ class Folder:
         try:
             return sanitize_string(self.name)
         except Exception as e:
-            logging.error(f"Error sanitizing folder name for {self.path}: {e}")
+            pl.error(f"Error sanitizing folder name for {self.path}: {e}")
             raise
 
     def sanitize(self) -> str:
@@ -60,10 +61,10 @@ class Folder:
             new_path = self.parent / sanitized
             try:
                 self.path.rename(new_path)
-                logging.info(f"Renamed folder '{self.name}' → '{sanitized}'")
+                pl.progress(f"Renamed folder '{self.name}' → '{sanitized}'")
                 self.path = new_path
                 self.name = sanitized
             except Exception as e:
-                logging.error(f"Failed to rename folder '{self.name}' to '{sanitized}': {e}")
+                pl.error(f"Failed to rename folder '{self.name}' to '{sanitized}': {e}")
                 raise
         return self.name

@@ -11,6 +11,11 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, before_sleep_log
 
+from . import logging as pl
+
+# Standard logger kept solely for tenacity's before_sleep_log (requires stdlib Logger)
+_tenacity_logger = logging.getLogger(__name__)
+
 
 class SendMail:
     """
@@ -28,7 +33,7 @@ class SendMail:
         reraise=True,
         wait=wait_exponential(multiplier=1, min=3, max=10),
         retry=retry_if_exception_type(smtplib.SMTPException),
-        before_sleep=before_sleep_log(logging.getLogger(__name__), logging.WARNING)
+        before_sleep=before_sleep_log(_tenacity_logger, logging.WARNING)
     )
 
     def __init__(self, mail_receiver: str | Tuple[str], mail_subject: str, mail_sender: str, mail_password: str,
@@ -61,7 +66,6 @@ class SendMail:
         assert smtp_port is None or isinstance(smtp_port, int), \
             "SMTP port can be only interger if you wanted to change it! Otherwise going back to 587"
 
-        self.logger = logging.getLogger(self.__class__.__name__)
         try:
             self.sender = mail_sender
             self.password = mail_password
@@ -79,7 +83,7 @@ class SendMail:
             self.receiver = mail_receiver
             self.subject = mail_subject
         except Exception as e:
-            self.logger.error(f"Failed to initialize SendMail: {e}")
+            pl.error(f"Failed to initialize SendMail: {e}")
             raise
 
     def _prepare_message(self, body_text: str, attachment_path: str = None):
@@ -125,7 +129,7 @@ class SendMail:
                 encoders.encode_base64(part)
             part.add_header('Content-Disposition', 'attachment', filename=filename)
             msg.attach(part)
-            self.logger.info(f"Attached file: {filename}")
+            pl.progress(f"Attached file: {filename}")
 
         return msg
 
@@ -152,12 +156,12 @@ class SendMail:
                 server.starttls() if self.use_tls else None
                 server.login(self.sender, self.password)
                 server.sendmail(self.sender, self.receiver, message.as_string())
-            self.logger.info("Email sent successfully")
+            pl.progress("Email sent successfully")
         except smtplib.SMTPException as smtp_err:
-            self.logger.error(f"SMTP error during send: {smtp_err}")
+            pl.error(f"SMTP error during send: {smtp_err}")
             raise
         except Exception as e:
-            self.logger.error(f"Unexpected error during email send: {e}")
+            pl.error(f"Unexpected error during email send: {e}")
             raise
 
     def send_text(self, text: str):
@@ -172,7 +176,7 @@ class SendMail:
         try:
             self.send(text)
         except Exception as e:
-            self.logger.error(f"Failed to send text email: {e}")
+            pl.error(f"Failed to send text email: {e}")
             raise
 
     def send_with_csv(self, text: str, filename: str, folder: str):
@@ -194,8 +198,8 @@ class SendMail:
             path = os.path.join(folder, filename)
             self.send(text, path)
         except FileNotFoundError as fnf_err:
-            self.logger.error(fnf_err)
+            pl.error(str(fnf_err))
             raise
         except Exception as e:
-            self.logger.error(f"Failed to send email with attachment: {e}")
+            pl.error(f"Failed to send email with attachment: {e}")
             raise

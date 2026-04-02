@@ -1,22 +1,22 @@
-import requests
 import logging
+import requests
 import functools
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from typing import List, Dict, Any
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential, before_sleep_log
+
+from . import logging as pl
 
 
 class TimeoutException(Exception):
     """
     Custom exception to indicate that a function has exceeded its time limit.
     """
-
     pass
 
 
-# Logger for retry events
-logger = logging.getLogger(__name__)
-
+# Standard logger kept solely for tenacity's before_sleep_log (requires stdlib Logger)
+_tenacity_logger = logging.getLogger(__name__)
 
 # -----------------------------
 # Retry decorator for timeouts
@@ -26,7 +26,7 @@ retry_on_timeout = retry(
     reraise=True,
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=3, max=10),
-    before_sleep=before_sleep_log(logger, logging.WARNING)
+    before_sleep=before_sleep_log(_tenacity_logger, logging.WARNING)
 )
 
 
@@ -52,7 +52,6 @@ def timeout_decorator(timeout: int):
                     return fut.result(timeout=timeout)
                 except FutureTimeout:
                     raise TimeoutException(f"Timed out after {timeout}s")
-
         return wrapper
 
     return decorator
@@ -70,12 +69,10 @@ def ensure_token(func):
     :rtype: Callable
     """
     def wrapper(self, *args, **kwargs):
-        # Lazy token retrieval on first use
         if not getattr(self, 'api_token', None):
-            logging.getLogger('TOKEN').info('No token found, fetching new token.')
+            pl.progress('No token found, fetching new token.')
             self.api_token = self.get_api_token()
         else:
-            # verify and refresh if expired
             self.verify_and_refresh_api_token()
         return func(self, *args, **kwargs)
     return wrapper
@@ -90,12 +87,6 @@ class Api:
         """
         Initializes the API class with the necessary URLs and login credentials.
 
-        This method sets up the API class with the given URLs for data operations and login, along with
-        the user credentials. If a token is provided, it will be used for authentication in subsequent
-        requests. Otherwise, a new token can be obtained using the `get_api_token` method. A session
-        object is created to maintain persistent HTTP connections and reuse headers for performance
-        improvements.
-
         :param web_url: The base URL for data-related API operations.
         :type web_url: str
         :param login_web_url: The URL for obtaining a new API token.
@@ -107,7 +98,6 @@ class Api:
         :param pwd: The password for the API login.
         :type pwd: str
         """
-
         assert isinstance(web_url, str) and ("http://" in web_url or "https://" in web_url), \
             "Web URL should be a string with the structure of URL like https://www.example.com"
         assert isinstance(login_web_url, str) and ("http://" in login_web_url or "https://" in login_web_url), \
@@ -144,17 +134,16 @@ class Api:
         :raises TimeoutException: When checking token exceeds time limit.
         :raises requests.RequestException: On HTTP errors during verification.
         """
-        logger = logging.getLogger("VERIFY_TOKEN")
-        logger.info('Verifying token validity.')
+        pl.progress('Verifying token validity.')
         try:
             if self.user_is_logged_out():
-                logger.info('Token expired, fetching new one.')
+                pl.progress('Token expired, fetching new one.')
                 self.api_token = self.get_api_token()
         except TimeoutException:
-            logger.error('Token verification timed out, will retry fetch.')
+            pl.error('Token verification timed out, will retry fetch.')
             self.api_token = self.get_api_token()
         except requests.RequestException as e:
-            logger.error(f'Failed to verify token: {e}, fetching new one.')
+            pl.error(f'Failed to verify token: {e}, fetching new one.')
             self.api_token = self.get_api_token()
         return self.api_token
 
@@ -184,8 +173,7 @@ class Api:
         :raises TimeoutException: When token request exceeds time limit.
         :raises requests.RequestException: On HTTP errors during token fetch.
         """
-        logger = logging.getLogger('GET_TOKEN')
-        logger.info('Requesting new API token.')
+        pl.progress('Requesting new API token.')
         try:
             resp = self.session.post(self.login_url, data={'login': self.username, 'pwd': self.pwd}, timeout=30)
             resp.raise_for_status()
@@ -193,10 +181,10 @@ class Api:
             self.api_token = token
             return token
         except TimeoutException:
-            logger.error('get_api_token function exceeded the time limit of 5 minutes.')
+            pl.error('get_api_token function exceeded the time limit of 5 minutes.')
             raise
         except requests.RequestException as e:
-            logger.error(f'Failed to retrieve new API token. Error: {e}')
+            pl.error(f'Failed to retrieve new API token. Error: {e}')
             return ''
 
     def _get_headers(self) -> dict:
@@ -206,7 +194,6 @@ class Api:
         :return: Headers containing the Bearer token.
         :rtype: dict
         """
-
         return {'Authorization': f'Bearer {self.api_token}'}
 
     @ensure_token
@@ -216,12 +203,6 @@ class Api:
         """
         Send a list of items as JSON payload to the API endpoint.
 
-        Example:
-            files_list = [
-                {"id": 1, "name": "foo"},
-                {"id": 2, "name": "bar"}
-            ]
-
         :param files_list: List of items to serialize and send.
         :type files_list: list
         :return: Response from the API.
@@ -229,21 +210,19 @@ class Api:
         :raises TimeoutException: If request exceeds allowed time.
         :raises requests.RequestException: On HTTP errors during send.
         """
-
         assert isinstance(files_list, list), "List of files must contain a JSON list-like structure!!"
 
-        logger = logging.getLogger('SEND_JSON')
-        logger.info('Sending JSON payload.')
+        pl.progress('Sending JSON payload.')
         try:
             resp = self.session.post(self.data_url, json=files_list, headers=self._get_headers(), timeout=60)
             resp.raise_for_status()
-            logger.debug(f"Response: {resp.text}")
+            pl.log_kv("Response", text=resp.text)
             return resp
         except TimeoutException:
-            logger.error('send_json function exceeded the time limit of 20 minutes.')
+            pl.error('send_json function exceeded the time limit of 20 minutes.')
             raise
         except requests.RequestException as e:
-            logger.error(f'Failed to send JSON data to API. Error: {e}')
+            pl.error(f'Failed to send JSON data to API. Error: {e}')
             raise
 
     @ensure_token
@@ -252,16 +231,6 @@ class Api:
     def send_files(self, files_dict: Dict[str, str | bytes], form_data: Dict[str, Any]):
         """
         Send files via multipart/form-data to the API endpoint.
-
-        Example:
-            files_dict = {
-                "file1.txt": open("file1.txt", "rb"),
-                "image.png": image_bytes
-            }
-            form_data = {
-                "description": "Test upload",
-                "tags": "sample,test"
-            }
 
         :param files_dict: Mapping of filename to file-like object or bytes.
         :type files_dict: dict
@@ -272,23 +241,21 @@ class Api:
         :raises TimeoutException: If upload exceeds allowed time.
         :raises requests.RequestException: On HTTP errors during upload.
         """
-
         assert isinstance(files_dict, dict), ("Files_dict must contain a dictionary in structure: "
                                               "{'filename': b'file_bytes', ...}")
         assert isinstance(form_data, dict), "Metadata must be in a dictionary strcture: {'metadata1': value, ...}"
 
-        logger = logging.getLogger('SEND_MULTIPART')
-        logger.info('Sending multipart files.')
+        pl.progress('Sending multipart files.')
         try:
             resp = self.session.post(self.data_url, files=files_dict, data=form_data, headers=self._get_headers(),
                                      timeout=60)
             resp.raise_for_status()
             return resp
         except TimeoutException:
-            logger.error('send_files function exceeded the time limit of 20 minutes.')
+            pl.error('send_files function exceeded the time limit of 20 minutes.')
             raise
         except requests.RequestException as e:
-            logger.error(f'Failed to send files to the API. Error: {e}')
+            pl.error(f'Failed to send files to the API. Error: {e}')
             raise
 
     @ensure_token
@@ -300,9 +267,7 @@ class Api:
 
         :raises NotImplementedError: Always, until implemented.
         """
-
-        logger = logging.getLogger("GET_FILES")
-        logger.info("This method is not implemented yet.")
+        pl.progress("get_files is not implemented yet.")
         raise NotImplementedError
 
 
@@ -325,7 +290,6 @@ class ApiClientCRUD(Api):
         :param username: Username for login.
         :param pwd: Password for login.
         """
-
         assert isinstance(base_url, str) and ("http://" in base_url or "https://" in base_url), \
             "Base URL that is used as a prefix for all endpoints must be a string and contain 'http://' or 'https://'"
 
@@ -352,17 +316,17 @@ class ApiClientCRUD(Api):
         """
         assert isinstance(endpoint, str), "Endpoint must be an existing web-path"
 
-        logging.info(f'GET {endpoint}')
+        pl.progress(f'GET {endpoint}')
         try:
             resp = self.session.get(f"{self.base_url}/{endpoint}", headers=self._get_headers(), params=params,
                                     timeout=10)
             resp.raise_for_status()
             return resp.json()
         except TimeoutException:
-            logging.error(f'GET {endpoint} timed out.')
+            pl.error(f'GET {endpoint} timed out.')
             raise
         except requests.RequestException as e:
-            logging.error(f'Failed GET {endpoint}: {e}')
+            pl.error(f'Failed GET {endpoint}: {e}')
             raise
 
     @ensure_token
@@ -384,16 +348,16 @@ class ApiClientCRUD(Api):
         assert isinstance(endpoint, str), "Endpoint must be an existing web-path"
         assert isinstance(body, dict), "Body must a dictionary/JSON like structure. Example: {'metadata': value, ...}"
 
-        logging.info(f'POST {endpoint}')
+        pl.progress(f'POST {endpoint}')
         try:
             resp = self.session.post(f"{self.base_url}/{endpoint}", headers=self._get_headers(), json=body, timeout=10)
             resp.raise_for_status()
             return resp.json()
         except TimeoutException:
-            logging.error(f'POST {endpoint} timed out.')
+            pl.error(f'POST {endpoint} timed out.')
             raise
         except requests.RequestException as e:
-            logging.error(f'Failed POST {endpoint}: {e}')
+            pl.error(f'Failed POST {endpoint}: {e}')
             raise
 
     @ensure_token
@@ -415,16 +379,16 @@ class ApiClientCRUD(Api):
         assert isinstance(endpoint, str), "Endpoint must be an existing web-path"
         assert isinstance(body, dict), "Body must a dictionary/JSON like structure. Example: {'metadata': value, ...}"
 
-        logging.info(f'PUT {endpoint}')
+        pl.progress(f'PUT {endpoint}')
         try:
             resp = self.session.put(f"{self.base_url}/{endpoint}", headers=self._get_headers(), json=body, timeout=10)
             resp.raise_for_status()
             return resp.json()
         except TimeoutException:
-            logging.error(f'PUT {endpoint} timed out.')
+            pl.error(f'PUT {endpoint} timed out.')
             raise
         except requests.RequestException as e:
-            logging.error(f'Failed PUT {endpoint}: {e}')
+            pl.error(f'Failed PUT {endpoint}: {e}')
             raise
 
     @ensure_token
@@ -441,13 +405,13 @@ class ApiClientCRUD(Api):
         """
         assert isinstance(endpoint, str), "Endpoint must be an existing web-path"
 
-        logging.info(f'DELETE {endpoint}')
+        pl.progress(f'DELETE {endpoint}')
         try:
             resp = self.session.delete(f"{self.base_url}/{endpoint}", headers=self._get_headers(), timeout=10)
             resp.raise_for_status()
         except TimeoutException:
-            logging.error(f'DELETE {endpoint} timed out.')
+            pl.error(f'DELETE {endpoint} timed out.')
             raise
         except requests.RequestException as e:
-            logging.error(f'Failed DELETE {endpoint}: {e}')
+            pl.error(f'Failed DELETE {endpoint}: {e}')
             raise

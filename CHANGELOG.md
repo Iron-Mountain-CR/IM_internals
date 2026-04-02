@@ -5,6 +5,18 @@ All notable changes. to **im-internals** will be documented in this file followi
 ## [Unreleased]
 - (Future enhancements and fixes)
 
+## [0.3.0] - 2026-04-02
+### Added
+- `project_logging` module — centralised logging singleton with `progress`, `warn`,
+  `error`, `log_kv`, and `step` helpers, plus stdout formatting with timestamps.
+
+### Changed
+- All modules (`api`, `email`, `file`, `folder`, `ftp`, `sanitize`, `sftp`, `sql`,
+  `transfer`) migrated from bare `logging.*` / per-instance loggers to the
+  `project_logging` singleton.
+- `Ftp._log_setup()` and `Sftp._log_setup()` now delegate to `project_logging.get()`
+  instead of creating their own `FileHandler`; `logger_name` parameters kept for
+  backward compatibility.
 
 ## [0.2.2] - 2025-08-14
 - Changed name of the package from "im-internals" -> "im_internals"
@@ -39,7 +51,9 @@ All notable changes. to **im-internals** will be documented in this file followi
   - Configurable console script `cfg-commands`
 
 ```markdown
-[Unreleased]: https://github.com/<company>/im-internals/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/<company>/im-internals/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/<company>/im-internals/compare/v0.2.2...v0.3.0
+[0.2.2]: https://github.com/<company>/im-internals/compare/v0.2.1...v0.2.2
 [0.2.0]: https://github.com/<company>/im-internals/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/<company>/im-internals/releases/tag/v0.1.0
 ```

@@ -1,11 +1,9 @@
 import os
 import re
-import logging
 from collections import defaultdict
 from typing import Tuple, Dict, List, Optional
 
-
-logger = logging.getLogger(__name__)
+from . import logging as pl
 
 
 class SanitizationConfig:
@@ -79,7 +77,7 @@ def sanitize_string(text: str, unallowed_chars: List[str] = None, unallowed_word
             sanitized_chars.append(mapping.get(char, char))
         return "".join(sanitized_chars)
     except Exception as e:
-        logger.error("Error sanitizing string: %s", e)
+        pl.error(f"Error sanitizing string: {e}")
         raise
 
 
@@ -116,24 +114,22 @@ def find_duplicate(folder_path: str, file_types: Tuple[str, ...], duplicate_ext:
                     full = os.path.join(dirpath, fn)
                     name_to_paths[name].append(full)
 
-        # 2) Plain‐duplicate pass: same exact name in >1 folder
+        # 2) Plain-duplicate pass: same exact name in >1 folder
         grouped: Dict[str, List[str]] = defaultdict(list)
         for name, paths in name_to_paths.items():
             if len(paths) > 1:
                 grouped[name].extend(paths)
 
-        # 3) First-pass grouping: strip off numbered‐duplicate suffixes
+        # 3) First-pass grouping: strip off numbered-duplicate suffixes
         if duplicate_ext:
             num_pat = re.compile(duplicate_ext + r"$")
             for name, paths in name_to_paths.items():
                 base = num_pat.sub("", name)
                 if base != name:
-                    # it *was* a numbered duplicate, so group it under the stripped base
                     grouped[base].extend(paths)
                     grouped[base].extend(name_to_paths.get(base, []))
 
-        # 4) Second-pass grouping: dynamic prefix‐based
-        #    build a map: prefix → list of names that share it
+        # 4) Second-pass grouping: dynamic prefix-based
         if duplicate_separators:
             candidate: Dict[str, List[str]] = defaultdict(list)
             for name in name_to_paths:
@@ -142,17 +138,14 @@ def find_duplicate(folder_path: str, file_types: Tuple[str, ...], duplicate_ext:
                         prefix = name[: m.start()]
                         candidate[prefix].append(name)
 
-            # pick only those prefixes with >1 *distinct* name, sorted by descending length
             used_names = set()
             for prefix, names in sorted(candidate.items(), key=lambda kv: -len(kv[0])):
                 uniq = set(names)
                 if len(uniq) <= 1:
                     continue
-                # have multiple variants under this prefix → collect their full paths
                 paths = []
                 for nm in uniq:
                     paths.extend(name_to_paths[nm])
-                # only keep if ≥2 files and we haven't already grouped them under a longer prefix
                 if len(paths) > 1 and not any(nm in used_names for nm in uniq):
                     grouped[prefix].extend(paths)
                     used_names.update(uniq)
@@ -166,5 +159,5 @@ def find_duplicate(folder_path: str, file_types: Tuple[str, ...], duplicate_ext:
 
         return result
     except Exception as e:
-        logger.error("Error finding duplicates: %s", e)
+        pl.error(f"Error finding duplicates: {e}")
         raise

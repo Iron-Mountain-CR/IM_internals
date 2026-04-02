@@ -1,10 +1,11 @@
 from pathlib import Path
-import logging
 import hashlib
 import csv
 import xml.etree.ElementTree as ET
 import pypdf
-from im_internals.sanitize import sanitize_string
+
+from . import logging as pl
+from .sanitize import sanitize_string
 
 
 class File:
@@ -25,7 +26,7 @@ class File:
             if not self.path.exists():
                 raise FileNotFoundError(f"{self.path} does not exist")
         except Exception as e:
-            logging.error(f"Error initializing File for {file_path}: {e}")
+            pl.error(f"Error initializing File for {file_path}: {e}")
             raise
 
         self._md5 = None  # lazy-computed MD5 hash
@@ -59,7 +60,7 @@ class File:
         try:
             return self.path.stat().st_ctime
         except Exception as e:
-            logging.error(f"Error getting creation time for {self.path}: {e}")
+            pl.error(f"Error getting creation time for {self.path}: {e}")
             raise
 
     @property
@@ -73,7 +74,7 @@ class File:
         try:
             return self.path.stat().st_mtime
         except Exception as e:
-            logging.error(f"Error getting modification time for {self.path}: {e}")
+            pl.error(f"Error getting modification time for {self.path}: {e}")
             raise
 
     @property
@@ -87,7 +88,7 @@ class File:
         try:
             return self.path.stat().st_size
         except Exception as e:
-            logging.error(f"Error getting size for {self.path}: {e}")
+            pl.error(f"Error getting size for {self.path}: {e}")
             raise
 
     @property
@@ -106,7 +107,7 @@ class File:
                         hasher.update(chunk)
                 self._md5 = hasher.hexdigest()
             except Exception as e:
-                logging.error(f"Error calculating MD5 for {self.path}: {e}")
+                pl.error(f"Error calculating MD5 for {self.path}: {e}")
                 raise
         return self._md5
 
@@ -122,11 +123,11 @@ class File:
             if clean != self.path.name:
                 new_path = self.path.with_name(clean)
                 self.path.rename(new_path)
-                logging.info(f"Renamed file {self.path.name!r} → {clean!r}")
+                pl.progress(f"Renamed file {self.path.name!r} → {clean!r}")
                 self.path = new_path
             return self.path.name
         except Exception as e:
-            logging.error(f"Error sanitizing filename for {self.path}: {e}")
+            pl.error(f"Error sanitizing filename for {self.path}: {e}")
             raise
 
     def num_pdf_pages(self) -> int:
@@ -143,7 +144,7 @@ class File:
             reader = pypdf.PdfReader(str(self.path))
             return len(reader.pages)
         except Exception as e:
-            logging.error(f"Error reading PDF pages for {self.path}: {e}")
+            pl.error(f"Error reading PDF pages for {self.path}: {e}")
             raise
 
     def sanitize_csv(self, encoding: str = "utf-16"):
@@ -170,9 +171,9 @@ class File:
                 writer = csv.writer(f, delimiter=",", quoting=csv.QUOTE_NONE)
                 writer.writerows(rows)
 
-            logging.info(f"Sanitized CSV metadata in {self.path}")
+            pl.progress(f"Sanitized CSV metadata in {self.path}")
         except Exception as e:
-            logging.error(f"Error sanitizing CSV {self.path}: {e}")
+            pl.error(f"Error sanitizing CSV {self.path}: {e}")
             raise
 
     def sanitize_xml(self):
@@ -192,7 +193,7 @@ class File:
                     elem.text = sanitize_string(elem.text)
             tree.write(str(self.path), encoding="utf-8", xml_declaration=True)
 
-            logging.info(f"Sanitized XML file: {self.path}")
+            pl.progress(f"Sanitized XML file: {self.path}")
         except Exception as e:
-            logging.error(f"Error sanitizing XML {self.path}: {e}")
+            pl.error(f"Error sanitizing XML {self.path}: {e}")
             raise
