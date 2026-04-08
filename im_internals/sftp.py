@@ -88,7 +88,7 @@ class Sftp:
             "Remote folder must be a path string and it must contains '/' as FTP path should be 'Folder/File' structure"
         assert isinstance(log_folder, str) and os.path.exists(log_folder), \
             "Log folder must be a path string, and the path must be accessible for the device!"
-        assert isinstance(log_name, str) and log_folder.endswith(".log"), \
+        assert isinstance(log_name, str) and log_name.endswith(".log"), \
             "Log filename must be a string that ends with '.log' as file type!"
         assert isinstance(validation_regex, str) and isinstance(re.compile(validation_regex), re.Pattern), \
             "Validation regex must be a string that is actually a readable regex!"
