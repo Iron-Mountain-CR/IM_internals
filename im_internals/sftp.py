@@ -74,10 +74,6 @@ class Sftp:
         :param port: The port number for the SFTP connection (default is 22).
         :type port: int, optional
         """
-        host_dots = sum([1 for dot in hostname if dot == "."])
-
-        assert isinstance(host_dots, str) and host_dots == 3, \
-            "Hostname must be a string with structure XXX.XXX.XXX.XXX!"
         assert isinstance(username, str), "Username must be a string!"
         assert isinstance(password, str), "Password must be a string!"
         assert isinstance(files_folder, str) and os.path.exists(files_folder), \
