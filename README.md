@@ -15,8 +15,30 @@ readme_content = """# im-internals
 
 ## Installation
 
+This package is **not published to PyPI** — `pip install im-internals` will not work. Install
+directly from a tagged GitHub Release wheel instead:
+
 ```bash
-pip install im-internals
+python -m pip install --upgrade "https://github.com/Iron-Mountain-CR/IM_internals/releases/download/<tag>/im_internals-<version>-py3-none-any.whl"
+```
+
+Replace `<tag>`/`<version>` with the release you want, e.g. for `v0.3.4`:
+
+```bash
+python -m pip install --upgrade "https://github.com/Iron-Mountain-CR/IM_internals/releases/download/v0.3.4/im_internals-0.3.4-py3-none-any.whl"
+```
+
+Verify the installed version:
+
+```bash
+python -c "import im_internals; print(im_internals.__version__)"
+```
+
+Alternatively, to always track the latest `main` (rebuilds from source on every install, no URL to
+update per release):
+
+```bash
+python -m pip install --upgrade "git+https://github.com/Iron-Mountain-CR/IM_internals.git@main"
 ```
 
 
