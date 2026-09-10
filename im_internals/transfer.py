@@ -94,9 +94,9 @@ def recursive_folder_lookup(src_path: str, dest_path: str, list_names: list, not
 
         elif src_path != origin_path:
             file = folder
-            old_file = File(src_path, file)
+            old_file = File(os.path.join(src_path, file))
             if (os.path.exists(os.path.join(dest_path, file))
-                    and old_file.md_hash == File(dest_path, file).md_hash):
+                    and old_file.md5 == File(os.path.join(dest_path, file)).md5):
                 pl.progress(f"File {file} already exists in the {dest_path}")
                 continue
 
@@ -374,10 +374,10 @@ class Move:
                                 filename = file[:file.rfind(".")]
                                 if self.val_regex == "" or re.fullmatch(self.val_regex, filename):
                                     copy_files.append(file)
-                                    old_file = File(self.from_path, file)
+                                    old_file = File(os.path.join(self.from_path, file))
 
                                     if (os.path.exists(os.path.join(self.to_path, file))
-                                            and old_file.md_hash == File(self.to_path, file).md_hash):
+                                            and old_file.md5 == File(os.path.join(self.to_path, file)).md5):
                                         pl.progress(f"File {file} already exists in the {self.to_path}")
                                         continue
 
@@ -443,10 +443,10 @@ class Move:
                                 if list_file == file:
                                     filename = file[:file.rfind(".")]
                                     if self.val_regex == "" or re.fullmatch(self.val_regex, filename):
-                                        old_file = File(self.from_path, file)
+                                        old_file = File(os.path.join(self.from_path, file))
 
                                         if (os.path.exists(os.path.join(self.to_path, file))
-                                                and old_file.md_hash == File(self.to_path, file).md_hash):
+                                                and old_file.md5 == File(os.path.join(self.to_path, file)).md5):
                                             pl.progress(f"File {file} already exists in the {self.to_path}")
                                             continue
 
