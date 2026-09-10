@@ -5,6 +5,16 @@ All notable changes. to **im-internals** will be documented in this file followi
 ## [Unreleased]
 - (Future enhancements and fixes)
 
+## [0.3.4] - 2026-09-10
+### Fixed
+- `transfer.Move.copy_files_or_folders`, `transfer.Move.copy_list_of_files_or_folders`, and
+  `transfer.recursive_folder_lookup` called the pre-rewrite two-argument `File(folder, filename)`
+  constructor and read a `.md_hash` attribute, both removed when `file.File` was rewritten to its
+  current single-argument `File(file_path)` / `.md5` API. Any of the three now raised
+  `TypeError: File.__init__() takes 2 positional arguments but 3 were given` as soon as a caller hit
+  the file-already-exists/hash-comparison branch (e.g. `Move.copy_files_or_folders(move_folder=True)`
+  recursing into an existing destination folder). No test coverage previously touched this path.
+
 ## [0.3.0] - 2026-04-02
 ### Added
 - `project_logging` module — centralised logging singleton with `progress`, `warn`,
