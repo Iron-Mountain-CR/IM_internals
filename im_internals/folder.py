@@ -1,3 +1,16 @@
+"""
+Folder
+======
+Thin wrapper around a filesystem directory: resolves and validates the path at
+construction time, and can sanitize the folder's own name (rename on disk) using the
+same character-stripping rules as :mod:`im_internals.sanitize`.
+
+Usage::
+
+    from im_internals.folder import Folder
+    f = Folder("C:/data/Some Folder!!")
+    f.sanitize()  # renames on disk if the name has disallowed characters
+"""
 from pathlib import Path
 
 from . import logging as pl

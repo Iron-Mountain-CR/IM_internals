@@ -1,3 +1,8 @@
+"""
+Tests for im_internals.api: TimeoutException/timeout_decorator, the ensure_token auth-refresh
+decorator, and the Api/ApiClientCRUD classes, using DummyResponse/DummySession stand-ins (below)
+in place of real requests.Session HTTP calls.
+"""
 import time
 import pytest
 import requests

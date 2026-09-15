@@ -1,3 +1,26 @@
+"""
+FTP
+===
+Plain (non-SFTP) FTP transfer helper built on `ftplib`, mirroring the shape of `im_internals.sftp`
+for scripts whose remote server only speaks FTP.
+
+Usage::
+
+    from im_internals.ftp import Ftp
+
+    ftp = Ftp(hostname="10.0.0.1", username="user", password="pw",
+              files_folder=r"C:\\upload", get_folder=r"C:\\download",
+              remote_folder="/incoming", log_folder=r"C:\\logs", log_name="job.log")
+    ftp.upload_files(file_type=".pdf", logger_name="unused")
+    ftp.close_connections()
+
+All transfer methods are decorated with `ftp_retry` (3 attempts, exponential backoff) and log via
+the shared `im_internals.logging` singleton rather than the `logger_name` parameter, which is kept
+only for call-site backward compatibility with the pre-`im_internals` API. `hostname` is asserted to
+contain exactly 3 dots (a loose IPv4-shape check, not real validation — e.g. "a.b.c.d" or
+"999.999.999.999" would also pass), so a real DNS hostname without dots would be rejected but is not
+guaranteed to actually be a valid IP.
+"""
 import ftplib
 import logging
 import os

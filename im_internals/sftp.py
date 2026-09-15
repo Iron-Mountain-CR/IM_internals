@@ -1,3 +1,28 @@
+"""
+SFTP
+====
+SFTP transfer helper built on `paramiko`. The most heavily-relied-on module in this package — every
+project migrated off the old `_Frequently_used`/`Frequently_used_Prod` SFTP classes now constructs
+one of these (see this repo's root CLAUDE.md for the migration notes and known call-site gotchas,
+e.g. `download_out_of_list_files` returning a tuple where the old API returned a single list).
+
+Usage::
+
+    from im_internals.sftp import Sftp
+
+    sftp = Sftp(hostname="10.0.0.1", username="user", password="pw",
+                files_folder=r"C:\\upload", get_folder=r"C:\\download",
+                remote_folder="/incoming", log_folder=r"C:\\logs", log_name="job.log")
+    sftp.upload_files(file_type=".pdf", logger_name="unused")
+    sftp.close_connections()
+
+All transfer methods are decorated with `sftp_retry` (3 attempts, exponential backoff on
+`paramiko.SSHException`/`socket.error`/`IOError`) and log via the shared `im_internals.logging`
+singleton rather than the `logger_name` parameter, which is kept only for call-site backward
+compatibility with the pre-`im_internals` API. Unlike `im_internals.ftp.Ftp`, `hostname` here is not
+validated at all (no dot-count assert) — any string is accepted at construction time and only fails
+later, at connection time, if it's not resolvable/reachable.
+"""
 import os
 import re
 import socket
@@ -572,6 +597,14 @@ class Sftp:
         """
         Verify the integrity of a remote file on the SFTP server by comparing its MD5 hash
         of the first and last chunks with precomputed local MD5 digests.
+
+        .. note::
+           NOTE (docs, 2026-09-15): despite the name and this docstring, no MD5 hashing happens
+           here - the method reads the raw first/last ``chunk_size`` bytes off the remote file and
+           compares those bytes directly against whatever ``first_local_md5_chunk``/
+           ``last_local_md5_chunk`` the caller passed in (raw bytes, not digests, despite the
+           parameter names). Equally valid for integrity checking, just not what the name promises -
+           if a caller is actually passing real MD5 digests, this comparison would never match.
 
         :param filename: Name of the file on the SFTP server to verify.
         :type filename: str

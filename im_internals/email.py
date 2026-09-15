@@ -1,3 +1,21 @@
+"""
+Email
+=====
+Replaces the old `_Frequently_used.MAIL_Class_Prod.SendMail` family (breaking change: old ctor
+took only `(mail_receiver, mail_subject)`; this one also requires `mail_sender`/`mail_password`
+explicitly. Method `.send_mail(mail_text=)` -> `.send(body_text=)`).
+
+Usage::
+
+    from im_internals.email import SendMail
+    mail = SendMail(mail_receiver="a@b.com", mail_subject="Job failed",
+                     mail_sender=config["email_sender"], mail_password=config["email_password"])
+    mail.send(body_text="...")
+    mail.send_with_csv(text="...", filename="report.csv", folder=r"C:\reports")
+
+Per this repo's root CLAUDE.md, `mail_sender`/`mail_password` should come from the `.cfg`'s
+`[DEFAULT]` section keys at the call site, not from environment variables (see NOTE below).
+"""
 import os
 import logging
 import smtplib
@@ -20,11 +38,12 @@ _tenacity_logger = logging.getLogger(__name__)
 class SendMail:
     """
     A class to send emails with optional attachments and retry logic.
-    Credentials are loaded from environment variables:
-        - MAIL_SENDER
-        - MAIL_PASSWORD (can be plain or base64-encoded in MAIL_PASSWORD_B64)
-        - SMTP_HOST (default: smtp.gmail.com)
-        - SMTP_PORT (default: 587)
+
+    NOTE: this docstring previously claimed credentials are loaded from MAIL_SENDER/MAIL_PASSWORD
+    environment variables - that is not what the code below actually does. `mail_sender` and
+    `mail_password` are plain required constructor arguments (see __init__); only `smtp_host`/
+    `smtp_port` fall back to the SMTP_HOST/SMTP_PORT env vars when not passed explicitly. Corrected
+    here since the previous text was actively misleading, not just incomplete.
     """
 
     # Retry decorator: up to 3 attempts, 5 seconds apart, on SMTP errors

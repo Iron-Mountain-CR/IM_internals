@@ -1,3 +1,10 @@
+"""
+Tests for im_internals.sftp.Sftp.
+
+Thin stub: only covers the constructor's hostname-format assertion. Does not test any real
+SFTP operation (connect/upload/download/list) - those would need a real or mocked Paramiko
+transport, per the comment at the bottom of this file.
+"""
 import pytest
 from im_internals.sftp import Sftp
 

@@ -1,3 +1,8 @@
+"""
+Tests for im_internals.cfg_commands: locating a .cfg file (find_cfg_file), reading a client
+section with [DEFAULT] fallback (read_cfg_file), listing sections (list_sections), and the
+-p/-c CLI argument parser (parse_cli_args), including its legacy no-subcommand flag form.
+"""
 import configparser
 import pytest
 from im_internals.cfg_commands import (

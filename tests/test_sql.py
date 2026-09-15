@@ -1,6 +1,17 @@
+"""
+Tests for im_internals.sql.SqlDatabase.
+
+Thin coverage: only a single query()/fetchall() round-trip against a monkeypatched pyodbc.connect.
+Does not test commit, rollback, call_sql_procedure, column_names, or the sql_retry decorator
+(imported but unused), per the trailing comment.
+"""
 import pytest
 from im_internals.sql import SqlDatabase, sql_retry
 
+# NOTE: DummyConn/DummyCursor below are dead code - the patch_pyodbc fixture defines its own
+# separate inline Dummy/DummyCursor pair instead of using this class. Also, DummyConn.cursor is
+# both an instance attribute (in __init__) and a method of the same name, which would collide if
+# this class were ever actually instantiated.
 class DummyCursor:
     def execute(self, *args, **kwargs): pass
     def fetchall(self): return [(1,)]

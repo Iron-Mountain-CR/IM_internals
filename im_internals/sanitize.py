@@ -1,3 +1,17 @@
+"""
+Sanitize
+========
+Two independent utilities for cleaning up scanned-file output: stripping/normalizing
+disallowed characters from a string (:func:`sanitize_string`, backed by
+:class:`SanitizationConfig`'s default character list/diacritic map), and detecting
+duplicate files across a folder tree by name (:func:`find_duplicate`).
+
+Usage::
+
+    from im_internals.sanitize import sanitize_string, find_duplicate
+    clean_name = sanitize_string("Fïle Nãme!!")
+    dupes = find_duplicate(root_folder, file_types=(".pdf", ".tif"))
+"""
 import os
 import re
 from collections import defaultdict

@@ -1,3 +1,22 @@
+"""
+SQL
+===
+Replaces `_Frequently_used.SQL_Class_Prod.SqlDatabase` / `Frequently_used_Prod.SQL_Class_Prod.
+Sql_database` - a drop-in for almost all call sites (ctor args and method names already match;
+just rename `Sql_database` -> `SqlDatabase` where aliased).
+
+Usage::
+
+    from im_internals.sql import SqlDatabase
+    db = SqlDatabase(sql_server=..., sql_database=..., sql_user=..., sql_password=...,
+                      sql_port=..., sql_driver=...)
+    rows = db.query("SELECT * FROM Table WHERE id = ?", (42,))
+    db.execute("UPDATE Table SET x = ? WHERE id = ?", (1, 42))
+    db.commit()
+
+`query`/`rollback`/`call_sql_procedure`/`column_names` are wrapped in `sql_retry` (3 attempts,
+exponential backoff) since transient `pyodbc.Error`s are common on flaky DB links.
+"""
 import logging
 import pyodbc
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential, before_sleep_log
@@ -37,6 +56,11 @@ class SqlDatabase:
 
     def __init__(self, sql_server: str, sql_database: str, sql_user: str, sql_password: str,
                  sql_port: int, sql_driver=str,):
+        # NOTE: `sql_driver=str` looks like a typo for a `sql_driver: str` type annotation - as
+        # written it sets the *default value* of sql_driver to the builtin `str` type itself. If a
+        # caller ever omits sql_driver, the connection string below becomes
+        # "DRIVER=<class 'str'>;..." and pyodbc.connect() fails. Harmless today only because every
+        # known call site passes sql_driver explicitly. Not fixed here (documentation-only pass).
         """
         Initializes the SQLDatabase class with the given SQL connection details.
 
@@ -62,6 +86,8 @@ class SqlDatabase:
         self.sql_cursor = self.sql_connection.cursor()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        # NOTE: no __enter__ is defined, so this class cannot actually be used as a context manager
+        # via `with SqlDatabase(...) as db:` - __exit__ is only reachable if called directly.
         """
         Closes the SQL connection and logs any exception details if raised.
 
@@ -207,6 +233,10 @@ class SqlDatabase:
             if type(columns) is list:
                 if len(columns) > 1:
                     for column in columns:
+                        # NOTE (bug, not fixed): compares against `columns` (the whole list) instead
+                        # of `column` (the loop variable) - a str is never == a list, so this branch
+                        # never actually matches anything and column_positions stays empty for any
+                        # multi-column list. Only the single-column list/str branches below work.
                         if column_info.column_name == columns:
                             column_positions[column] = column_info.ordinal_position - 1
                 else:

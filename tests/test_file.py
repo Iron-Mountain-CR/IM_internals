@@ -1,3 +1,7 @@
+"""
+Tests for im_internals.file.File: metadata properties (name/extension/size/timestamps/md5),
+PDF page counting, and the sanitize_* helpers (filename/csv/xml character cleanup).
+"""
 import hashlib
 import pytest
 from im_internals.file import File

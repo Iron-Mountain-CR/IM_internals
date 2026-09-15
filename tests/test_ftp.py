@@ -1,3 +1,7 @@
+"""
+Tests for im_internals.ftp.Ftp, using a DummyFTP stand-in (below) in place of a real ftplib.FTP
+connection so no network/FTP server is needed.
+"""
 import os
 import ftplib
 import pytest

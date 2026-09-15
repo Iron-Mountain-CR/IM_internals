@@ -1,3 +1,20 @@
+"""
+File
+====
+Single-file metadata and sanitization helper. Replaces the old
+`_Frequently_used.FILE_Class_prod.File` (breaking change: old ctor took
+`(folder_path, filename)`, this one takes one combined `file_path`; attrs
+renamed `.file_name`->`.name`, `.file_ext`->`.extension`, `.md_hash`->`.md5`).
+
+Usage::
+
+    from im_internals.file import File
+    f = File("C:/data/report.PDF")
+    f.name        # "report"
+    f.extension   # "pdf"
+    f.md5         # lazily computed and cached on first access
+    f.sanitize_filename()  # renames on disk if the name has disallowed chars
+"""
 from pathlib import Path
 import hashlib
 import csv

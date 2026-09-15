@@ -1,3 +1,10 @@
+"""
+Tests for im_internals.transfer.
+
+Thin stub: only covers get_unique_filename()'s basic collision-suffix behavior. Does not test
+robust_move, recursive_folder_lookup, move_folder_content, or the Move class's fluent API
+despite importing them - see the trailing comment noting they're intended but not yet written.
+"""
 import os
 import tempfile
 import pytest
