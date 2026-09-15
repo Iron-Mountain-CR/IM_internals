@@ -108,9 +108,19 @@ class Ftp:
     def __del__(self):
         """
         Ensures all connections are closed when the instance is deleted.
+
+        Swallows all exceptions: __del__ can run on a partially-constructed
+        instance (an assert failed in __init__ before any attributes were set)
+        or during interpreter shutdown (module globals already torn down, e.g.
+        ``pl.progress`` needing ``datetime``) - Python already ignores exceptions
+        raised here, only printing them as noise, so there is nothing to gain by
+        letting them propagate.
         """
-        self.close_connections()
-        pl.progress(f"FTP connections for {self.hostname} have been closed upon deletion.")
+        try:
+            self.close_connections()
+            pl.progress(f"FTP connections for {self.hostname} have been closed upon deletion.")
+        except Exception:
+            pass
 
     @property
     def ftp(self):
@@ -131,7 +141,7 @@ class Ftp:
         """
         Closes the FTP connection if it is currently open.
         """
-        if self._ftp is not None:
+        if getattr(self, "_ftp", None) is not None:
             self._ftp.quit()
             self._ftp = None
 
