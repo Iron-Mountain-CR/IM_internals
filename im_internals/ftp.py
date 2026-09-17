@@ -1,7 +1,41 @@
+"""
+FTP
+===
+Plain (non-SFTP) FTP transfer helper built on `ftplib`, mirroring the shape of `im_internals.sftp`
+for scripts whose remote server only speaks FTP.
+
+Usage::
+
+    from im_internals.ftp import Ftp
+
+    ftp = Ftp(hostname="10.0.0.1", username="user", password="pw",
+              files_folder=r"C:\\upload", get_folder=r"C:\\download",
+              remote_folder="/incoming", log_folder=r"C:\\logs", log_name="job.log")
+    ftp.upload_files(file_type=".pdf", logger_name="unused")
+    ftp.close_connections()
+
+All transfer methods are decorated with `ftp_retry` (3 attempts, exponential backoff) and log via
+the shared `im_internals.logging` singleton rather than the `logger_name` parameter, which is kept
+only for call-site backward compatibility with the pre-`im_internals` API. `hostname` is asserted to
+contain exactly 3 dots (a loose IPv4-shape check, not real validation — e.g. "a.b.c.d" or
+"999.999.999.999" would also pass), so a real DNS hostname without dots would be rejected but is not
+guaranteed to actually be a valid IP.
+
+`connect()` is bounded by `connect_timeout` (default 60s - higher than `Sftp`'s since this same
+timeout also applies to ftplib's data-transfer socket, not just the initial connect) - added
+2026-09-17 because a connection that silently died (VPN blip, firewall idle timeout) previously had
+no way to be noticed: the socket never errors on its own, so the next command, or even
+`close_connections()`/`__del__` at script end, could block forever. `ftplib` has no protocol-level
+keepalive of its own (unlike `im_internals.sftp.Sftp`'s SSH-level `set_keepalive`), so OS-level TCP
+keepalive is enabled on the control-connection socket instead via `_enable_tcp_keepalive()` - a
+best-effort mitigation, not as reliable as an application-level heartbeat. `connect_timeout` is an
+optional constructor kwarg with a default, so existing call sites are unaffected.
+"""
 import ftplib
 import logging
 import os
 import re
+import socket
 from typing import List, Tuple, Dict
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential, before_sleep_log
 
@@ -18,6 +52,29 @@ ftp_retry = retry(
     reraise=True,
     before_sleep=before_sleep_log(_tenacity_logger, logging.WARNING)
 )
+
+
+def _enable_tcp_keepalive(sock, idle_seconds: int = 30, interval_seconds: int = 10) -> None:
+    """Turn on OS-level TCP keepalive on an already-connected socket.
+
+    `ftplib` has no application-level heartbeat (unlike `im_internals.sftp.Sftp`'s SSH keepalive), so
+    this is the closest equivalent: it lets the OS notice a silently-dropped connection (VPN blip,
+    firewall idle timeout) and fail fast on it, instead of a later read/write or close() blocking
+    forever on a socket that never sees an error. Best-effort only - failures are logged and
+    swallowed since a missing keepalive should not stop the connection from being usable.
+    """
+    try:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        if hasattr(socket, "SIO_KEEPALIVE_VALS"):
+            # Windows: (onoff, idle_time_ms, interval_ms) - every script in this repo runs on Windows.
+            sock.ioctl(socket.SIO_KEEPALIVE_VALS, (1, idle_seconds * 1000, interval_seconds * 1000))
+        elif hasattr(socket, "TCP_KEEPIDLE"):
+            # Linux fallback, kept for completeness even though this repo is Windows-only today.
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, idle_seconds)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, interval_seconds)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3)
+    except OSError as e:
+        pl.warn(f"Could not enable TCP keepalive on FTP socket: {e}")
 
 
 class Ftp:
@@ -44,10 +101,15 @@ class Ftp:
     :type validation_regex: str
     :param port: The port number for the FTP server (default: 21).
     :type port: int
+    :param connect_timeout: Max seconds for the control-connection socket - covers both the initial
+        `connect()` and, since `ftplib` reuses the same timeout for data-transfer sockets, any silent
+        stall during a transfer.
+    :type connect_timeout: float, optional
     """
 
     def __init__(self, hostname: str, username: str, password: str, files_folder: str, get_folder: str,
-                 remote_folder: str, log_folder: str, log_name: str, validation_regex="", port: int = 21):
+                 remote_folder: str, log_folder: str, log_name: str, validation_regex="", port: int = 21,
+                 connect_timeout: float = 60.0):
         """
         Initializes the FTP class with the given connection details, local and remote folder paths, and logging
         settings.
@@ -72,6 +134,11 @@ class Ftp:
         :type validation_regex: str
         :param port: The port number for the FTP connection (default is 21).
         :type port: int, optional
+        :param connect_timeout: Max seconds to wait on the control/data sockets before raising,
+            instead of blocking forever on an unreachable host or a connection that went silently
+            dead mid-transfer. Defaults to 60s (higher than `Sftp`'s 30s default since this same
+            value also bounds data transfers here, not just the handshake).
+        :type connect_timeout: float, optional
         """
         host_dots = sum([1 for dot in hostname if dot == "."])
 
@@ -92,6 +159,8 @@ class Ftp:
         assert isinstance(validation_regex, str) and isinstance(re.compile(validation_regex), re.Pattern), \
             "Validation regex must be a string that is actually a readable regex!"
         assert isinstance(port, int), "FTP port must be a integer if it needs to be changes! Otherwise default 21"
+        assert isinstance(connect_timeout, (int, float)) and connect_timeout > 0, \
+            "Connect timeout must be a positive number of seconds!"
 
         self.hostname = hostname
         self.username = username
@@ -104,6 +173,7 @@ class Ftp:
         self.log_name = log_name
         self._ftp = None
         self.val_regex = validation_regex
+        self.connect_timeout = connect_timeout
 
     def __del__(self):
         """
@@ -127,14 +197,20 @@ class Ftp:
         """
         Establishes and returns the FTP connection.
 
+        Bounds the connection with ``connect_timeout`` and enables OS-level TCP keepalive on the
+        socket - without these, a connection that goes silently dead (VPN blip, firewall idle
+        timeout) can leave later commands, or ``close_connections()`` itself, blocked forever since
+        the socket never sees an error.
+
         :return: The FTP connection object.
         :rtype: ftplib.FTP
         :raises ftplib.all_errors: If there is an error during FTP connection or login.
         """
         if self._ftp is None:
             self._ftp = ftplib.FTP()
-            self._ftp.connect(host=self.hostname, port=self.port)
+            self._ftp.connect(host=self.hostname, port=self.port, timeout=self.connect_timeout)
             self._ftp.login(user=self.username, passwd=self.password)
+            _enable_tcp_keepalive(self._ftp.sock)
         return self._ftp
 
     def close_connections(self):

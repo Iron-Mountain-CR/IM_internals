@@ -1,3 +1,8 @@
+"""
+Tests for im_internals.folder.Folder: construction/validation against a real filesystem path,
+the full_path property, and the sanitize_name()/sanitize() illegal-character-cleanup pair
+(the former previews the cleaned name without renaming on disk, the latter actually renames).
+"""
 import pytest
 from pathlib import Path
 from im_internals.folder import Folder

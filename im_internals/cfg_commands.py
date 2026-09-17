@@ -1,3 +1,16 @@
+"""
+cfg_commands
+============
+Read the shared company `.cfg` file (INI-format, one section per client, with a
+`[DEFAULT]` section whose keys every other section inherits via `configparser`'s
+built-in fallback). Provides both a Python API (:func:`read_cfg_file`,
+:func:`list_sections`) and a CLI entry point (this module's own :func:`main`, run via
+`python -m im_internals.cfg_commands ...`).
+
+Every production script in this repo is launched by a `.bat` file that passes
+`-p`/`-c` (path/client) on the command line — see :func:`main`'s own docstring for
+the exact "Legacy single-script calls" pattern that convention follows.
+"""
 import argparse
 import configparser
 import os

@@ -1,3 +1,35 @@
+"""
+SFTP
+====
+SFTP transfer helper built on `paramiko`. The most heavily-relied-on module in this package — every
+project migrated off the old `_Frequently_used`/`Frequently_used_Prod` SFTP classes now constructs
+one of these (see this repo's root CLAUDE.md for the migration notes and known call-site gotchas,
+e.g. `download_out_of_list_files` returning a tuple where the old API returned a single list).
+
+Usage::
+
+    from im_internals.sftp import Sftp
+
+    sftp = Sftp(hostname="10.0.0.1", username="user", password="pw",
+                files_folder=r"C:\\upload", get_folder=r"C:\\download",
+                remote_folder="/incoming", log_folder=r"C:\\logs", log_name="job.log")
+    sftp.upload_files(file_type=".pdf", logger_name="unused")
+    sftp.close_connections()
+
+All transfer methods are decorated with `sftp_retry` (3 attempts, exponential backoff on
+`paramiko.SSHException`/`socket.error`/`IOError`) and log via the shared `im_internals.logging`
+singleton rather than the `logger_name` parameter, which is kept only for call-site backward
+compatibility with the pre-`im_internals` API. Unlike `im_internals.ftp.Ftp`, `hostname` here is not
+validated at all (no dot-count assert) — any string is accepted at construction time and only fails
+later, at connection time, if it's not resolvable/reachable.
+
+`connect()` is bounded by `connect_timeout` (default 30s) and the transport gets an SSH-level
+keepalive every `keepalive_interval` seconds (default 30s) once connected — added 2026-09-17 because
+a connection that silently died (VPN blip, firewall idle timeout) previously had no way to be
+noticed: the socket never errors on its own, so the next read/write, or even
+`close_connections()`/`__del__` at script end, could block forever. Both are optional constructor
+kwargs with defaults, so existing call sites are unaffected.
+"""
 import os
 import re
 import socket
@@ -48,7 +80,7 @@ class Sftp:
     """
 
     def __init__(self, hostname, username, password, files_folder, get_folder, remote_folder, log_folder,
-                 log_name, validation_regex="", port=22):
+                 log_name, validation_regex="", port=22, connect_timeout=30.0, keepalive_interval=30):
         """
         Initializes the SFTP class with the given connection details, local and remote folder paths,
         and logging settings.
@@ -73,6 +105,14 @@ class Sftp:
         :type validation_regex: str
         :param port: The port number for the SFTP connection (default is 22).
         :type port: int, optional
+        :param connect_timeout: Max seconds to wait for the initial TCP/SSH handshake in ``connect()``
+            before raising, instead of blocking forever on an unreachable/black-holed host.
+        :type connect_timeout: float, optional
+        :param keepalive_interval: Seconds between SSH-level keepalive packets sent on the transport
+            once connected. Lets paramiko notice a silently-dropped connection (VPN blip, firewall
+            idle timeout) and tear it down on its own, instead of leaving a half-dead socket that
+            later blocks forever on the next read/write or on ``close_connections()``.
+        :type keepalive_interval: int, optional
         """
         assert isinstance(username, str), "Username must be a string!"
         assert isinstance(password, str), "Password must be a string!"
@@ -89,6 +129,10 @@ class Sftp:
         assert isinstance(validation_regex, str) and isinstance(re.compile(validation_regex), re.Pattern), \
             "Validation regex must be a string that is actually a readable regex!"
         assert isinstance(port, int), "FTP port must be a integer if it needs to be changes! Otherwise default 21"
+        assert isinstance(connect_timeout, (int, float)) and connect_timeout > 0, \
+            "Connect timeout must be a positive number of seconds!"
+        assert isinstance(keepalive_interval, int) and keepalive_interval > 0, \
+            "Keepalive interval must be a positive integer number of seconds!"
 
         self.hostname = hostname
         self.username = username
@@ -102,6 +146,8 @@ class Sftp:
         self._client = None
         self._sftp = None
         self.val_regex = validation_regex
+        self.connect_timeout = connect_timeout
+        self.keepalive_interval = keepalive_interval
 
     def __del__(self):
         """
@@ -125,6 +171,11 @@ class Sftp:
         """
         Establishes and returns the SSH client connection.
 
+        Bounds the handshake with ``connect_timeout`` and enables an SSH-level keepalive
+        (``keepalive_interval``) on the resulting transport - without these, a connection that goes
+        silently dead (VPN blip, firewall idle timeout) can leave later reads/writes, or
+        ``close_connections()`` itself, blocked forever since the socket never sees an error.
+
         :return: The SSH client connection object.
         :rtype: paramiko.SSHClient
         :raises paramiko.SSHException: If there is an error during SSH client connection.
@@ -132,7 +183,11 @@ class Sftp:
         if self._client is None:
             self._client = paramiko.SSHClient()
             self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            self._client.connect(hostname=self.hostname, username=self.username, password=self.password, port=self.port)
+            self._client.connect(hostname=self.hostname, username=self.username, password=self.password,
+                                 port=self.port, timeout=self.connect_timeout)
+            transport = self._client.get_transport()
+            if transport is not None:
+                transport.set_keepalive(self.keepalive_interval)
         return self._client
 
     @property
@@ -572,6 +627,14 @@ class Sftp:
         """
         Verify the integrity of a remote file on the SFTP server by comparing its MD5 hash
         of the first and last chunks with precomputed local MD5 digests.
+
+        .. note::
+           NOTE (docs, 2026-09-15): despite the name and this docstring, no MD5 hashing happens
+           here - the method reads the raw first/last ``chunk_size`` bytes off the remote file and
+           compares those bytes directly against whatever ``first_local_md5_chunk``/
+           ``last_local_md5_chunk`` the caller passed in (raw bytes, not digests, despite the
+           parameter names). Equally valid for integrity checking, just not what the name promises -
+           if a caller is actually passing real MD5 digests, this comparison would never match.
 
         :param filename: Name of the file on the SFTP server to verify.
         :type filename: str

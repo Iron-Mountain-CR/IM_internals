@@ -1,3 +1,7 @@
+"""
+Tests for im_internals.email.SendMail, using a DummySMTP stand-in (below) in place of a real
+smtplib.SMTP connection so no network/mail server is needed.
+"""
 import smtplib
 import pytest
 from email.mime.text import MIMEText

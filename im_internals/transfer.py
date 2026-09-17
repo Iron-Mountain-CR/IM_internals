@@ -1,3 +1,28 @@
+"""
+File/folder transfer
+=====================
+`Move` — the fluent file/folder-moving and -copying helper used across most client pipelines in
+this repo, replacing the old `_Frequently_used.MOVE_Class_prod.Move` family (see this repo's root
+CLAUDE.md — a drop-in replacement, same fluent API).
+
+Usage::
+
+    mover = Move(temp_folder=tf, archive_folder=af, files_folder=ff)
+    mover.from_ff.to_tf.move_files_or_folders(file_type=".pdf", logger_name="", save_paths=False)
+
+Call one `from_XXX` property/method then one `to_XXX` property/method to set the source/destination
+for the next `move_*`/`copy_*` call — `from_ff`/`from_tf`/`from_af` (and the `to_*` equivalents)
+point at the constructor's `files_folder`/`temp_folder`/`archive_folder`; `from_f(path)`/`to_f(path)`
+accept an arbitrary path instead. `move_files_or_folders`/`copy_files_or_folders` filter by file
+extension; `move_list_of_files_or_folder`/`copy_list_of_files_or_folders` filter by an explicit
+name list. All four optionally validate names against `validation_regex` (set at construction) and
+return non-matching entries alongside the moved/copied ones.
+
+Also exposes lower-level helpers used internally and occasionally by callers directly:
+`robust_move`/`robust_copy`/`robust_copytree` (retry-wrapped `shutil` calls), `get_unique_filename`
+(collision-safe renaming), `move_folder_content` and `recursive_folder_lookup` (recursive
+tree merge/copy).
+"""
 import os
 import re
 import shutil
@@ -135,6 +160,17 @@ def move_folder_content(src, dest):
 
 
 class Move:
+    """
+    Fluent file/folder mover between a "files" folder, a "temp" folder, and an "archive" folder
+    (or arbitrary paths via `from_f`/`to_f`). See the module docstring for the `from_XXX.to_XXX.
+    move_*()`/`copy_*()` call pattern.
+
+    NOTE: every `move_*`/`copy_*` method's `except (FileNotFoundError, Exception, socket.error):`
+    is redundant (a bare `except Exception:` would catch the same set, since `Exception` is a
+    superclass of the other two) but not incorrect — unlike the `except A or B:` short-circuit bug
+    found elsewhere in this repo, a tuple of exception types is evaluated correctly by Python.
+    """
+
     def __init__(self, temp_folder: str, archive_folder: str, files_folder: str, validation_regex=""):
         """
         Initialization of the Class.

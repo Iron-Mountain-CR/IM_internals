@@ -1,3 +1,8 @@
+"""
+Tests for im_internals.sanitize: sanitize_string() (character/punctuation/diacritic cleanup)
+and find_duplicate() (grouping filenames by numbered-suffix or prefix-separator patterns,
+including recursive directory search and invalid-folder/invalid-regex error handling).
+"""
 import os
 import pytest
 from im_internals.sanitize import sanitize_string, find_duplicate, SanitizationConfig

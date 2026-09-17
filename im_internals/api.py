@@ -1,3 +1,31 @@
+"""
+API client
+==========
+HTTP API client with token auth, per-call timeouts, and retry-on-timeout, built on `requests`.
+
+Two classes:
+
+- `Api` — token-lifecycle management (fetch/verify/refresh) plus `send_json`/`send_files` for the
+  bespoke document-submission APIs used by several client pipelines in this repo (e.g. AXA's
+  Mountaineer API). `get_files()` is an unimplemented placeholder (always raises
+  `NotImplementedError`) — no client currently needs a download path.
+- `ApiClientCRUD(Api)` — adds `get`/`post`/`put`/`delete` against a `base_url`-prefixed REST API.
+  This is the closest existing analogue for a future replacement of the legacy
+  `Frequently_used_Prod.send_files_prod.JSON` class (see this repo's root CLAUDE.md — deferred
+  migration blocker for `McDonald_SFTP_prod.py`/`AXA_temp_manual_prod.py`), though nothing currently
+  uses it for that purpose.
+
+Usage::
+
+    api = Api(web_url="https://example.com/api", login_web_url="https://example.com/login",
+              username="user", pwd="pass")
+    api.send_json([{"key": "value"}])
+
+Every network-calling method is wrapped in `@retry_on_timeout` (retries `TimeoutException` up to 3
+times with exponential backoff) and `@timeout_decorator(seconds)` (runs the call in a worker thread
+and raises `TimeoutException` if it doesn't finish in time) — a `requests` call that hangs past its
+own `timeout=` kwarg is still bounded by this outer decorator.
+"""
 import logging
 import requests
 import functools
