@@ -9,6 +9,15 @@ from pathlib import Path
 from im_internals.ftp import Ftp
 
 
+# ----- Dummy socket to satisfy the post-connect keepalive setup -----
+class DummySocket:
+    def setsockopt(self, *args, **kwargs):
+        pass
+
+    def ioctl(self, *args, **kwargs):
+        pass
+
+
 # ----- Dummy FTP to simulate server behavior -----
 class DummyFTP:
     def __init__(self):
@@ -20,9 +29,12 @@ class DummyFTP:
         self.renamed = []
         self.files = []
         self.sizes = {}
+        self.sock = DummySocket()
+        self.timeout = None
 
-    def connect(self, host, port):
+    def connect(self, host, port, timeout=None):
         self.connected = (host, port)
+        self.timeout = timeout
 
     def login(self, user, passwd):
         if passwd == 'bad':
