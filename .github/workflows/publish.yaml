@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # required for PyPI Trusted Publishing (OIDC) - no API token/secret needed or stored here.
+      id-token: write
 
     steps:
       - uses: actions/checkout@v3
@@ -21,7 +23,7 @@ jobs:
           python-version: '3.x'
 
       - name: Install build tools
-        run: pip install build twine
+        run: pip install build
 
       - name: Build distributions
         run: python -m build
@@ -30,6 +32,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: dist/*
-        env:
-          TWINE_USERNAME: __token__            # this literal value
-          TWINE_PASSWORD: ${{ secrets.GH_PYPI_TOKEN }}
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
