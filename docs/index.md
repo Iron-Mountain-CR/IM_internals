@@ -7,17 +7,23 @@ Here you’ll find everything you need to install, configure, and dive into the 
 
 ## Installation
 
+Published on PyPI as of v0.4.2 (2026-09-23) - the plain command below always installs the latest
+release, no GitHub URL or release tag needed:
+
 ```bash
-pip install im-internals
+pip install --upgrade im-internals
 ```
 
-Or, if you’re working with the source:
+Or, if you're working with the source (repo is private - requires access):
 
 ```bash
-git clone https://github.com/Ivan-Bilej/IM_internals
-cd im-internals
+git clone https://github.com/Iron-Mountain-CR/IM_internals.git
+cd IM_internals
 pip install -e .
 ```
+
+See [CHANGELOG.md](https://github.com/Iron-Mountain-CR/IM_internals/blob/main/CHANGELOG.md) for
+what changed in each release.
 
 ---
 

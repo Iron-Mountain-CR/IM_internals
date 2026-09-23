@@ -5,6 +5,46 @@ All notable changes. to **im-internals** will be documented in this file followi
 ## [Unreleased]
 - (Future enhancements and fixes)
 
+## [0.4.2] - 2026-09-23
+### Changed
+- Published to PyPI as `im-internals` via Trusted Publishing (OIDC) — `pip install --upgrade
+  im-internals` now works directly, no more tracking GitHub release tags/wheel URLs. The source repo
+  itself stays private; only the built package is public. The `publish.yaml` workflow previously
+  built the package and installed `twine` but never actually called `twine upload` (dead
+  `TWINE_USERNAME`/`TWINE_PASSWORD` env vars on an unrelated step) — replaced with a working publish
+  step, no API token stored in the repo.
+
+## [0.4.1] - 2026-09-23
+### Fixed
+- `api.timeout_decorator` no longer runs the wrapped call inside a `ThreadPoolExecutor`. A call that
+  genuinely never returned (e.g. a stalled socket) left its worker thread running forever, and
+  exiting the `with` block (`exec.shutdown(wait=True)`) — or `concurrent.futures`' own process-wide
+  `atexit` hook, which joins *every* worker thread any `ThreadPoolExecutor` in the process ever
+  created — blocked interpreter shutdown waiting for it regardless of the configured timeout.
+  Replaced with a plain `daemon=True` thread + `Thread.join(timeout)`: a stuck call now reliably
+  raises `TimeoutException` after the configured timeout, and the abandoned thread can no longer
+  block the process from exiting. Behavior otherwise unchanged (same sequential execution from the
+  caller's side, same return values, same exception propagation).
+
+## [0.4.0] - 2026-09-17
+### Added
+- `Sftp` gains optional `connect_timeout` (default 30s, bounds the SSH handshake) and
+  `keepalive_interval` (default 30s, SSH-level keepalive on the transport) constructor parameters.
+- `Ftp` gains optional `connect_timeout` (default 60s — also bounds `ftplib`'s data-transfer sockets,
+  not just the handshake) and OS-level TCP keepalive on the control socket via a new
+  `_enable_tcp_keepalive()` helper.
+- Both are optional kwargs with defaults, so existing call sites are unaffected. Without them, a
+  connection that went silently dead (VPN blip, firewall idle timeout) had no way to be noticed — the
+  socket never errors on its own, so the next read/write, or even `close_connections()`/`__del__` at
+  script end, could block forever.
+
+### Fixed
+- `Sftp.__del__`/`Ftp.__del__` no longer raise noisy/misleading secondary exceptions when called on a
+  partially-constructed instance (an `assert` failed in `__init__` before any attributes were set) or
+  during interpreter shutdown (module globals already torn down, e.g. `pl.progress` needing
+  `datetime`). Both cases are now swallowed, since Python already discards `__del__` exceptions and
+  only prints them as noise.
+
 ## [0.3.4] - 2026-09-10
 ### Fixed
 - `transfer.Move.copy_files_or_folders`, `transfer.Move.copy_list_of_files_or_folders`, and
@@ -61,9 +101,14 @@ All notable changes. to **im-internals** will be documented in this file followi
   - Configurable console script `cfg-commands`
 
 ```markdown
-[Unreleased]: https://github.com/<company>/im-internals/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/<company>/im-internals/compare/v0.2.2...v0.3.0
-[0.2.2]: https://github.com/<company>/im-internals/compare/v0.2.1...v0.2.2
-[0.2.0]: https://github.com/<company>/im-internals/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/<company>/im-internals/releases/tag/v0.1.0
+[Unreleased]: https://github.com/Iron-Mountain-CR/IM_internals/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/Iron-Mountain-CR/IM_internals/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/Iron-Mountain-CR/IM_internals/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/Iron-Mountain-CR/IM_internals/compare/v0.3.4...v0.4.0
+[0.3.4]: https://github.com/Iron-Mountain-CR/IM_internals/compare/v0.3.0...v0.3.4
+[0.3.0]: https://github.com/Iron-Mountain-CR/IM_internals/compare/v0.2.2...v0.3.0
+[0.2.2]: https://github.com/Iron-Mountain-CR/IM_internals/compare/v0.2.1...v0.2.2
+[0.2.1]: https://github.com/Iron-Mountain-CR/IM_internals/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/Iron-Mountain-CR/IM_internals/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/Iron-Mountain-CR/IM_internals/releases/tag/v0.1.0
 ```

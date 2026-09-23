@@ -15,17 +15,12 @@ readme_content = """# im-internals
 
 ## Installation
 
-This package is **not published to PyPI** — `pip install im-internals` will not work. Install
-directly from a tagged GitHub Release wheel instead:
+**Published on PyPI as of v0.4.2 (2026-09-23).** The package is public on PyPI (`im-internals`) so it
+can be installed and upgraded with the plain command below — no GitHub URL, no release tag to track.
+The source repo itself stays private; only the built package is public.
 
 ```bash
-python -m pip install --upgrade "https://github.com/Iron-Mountain-CR/IM_internals/releases/download/<tag>/im_internals-<version>-py3-none-any.whl"
-```
-
-Replace `<tag>`/`<version>` with the release you want, e.g. for `v0.3.4`:
-
-```bash
-python -m pip install --upgrade "https://github.com/Iron-Mountain-CR/IM_internals/releases/download/v0.3.4/im_internals-0.3.4-py3-none-any.whl"
+python -m pip install --upgrade im-internals
 ```
 
 Verify the installed version:
@@ -34,12 +29,30 @@ Verify the installed version:
 python -c "import im_internals; print(im_internals.__version__)"
 ```
 
-Alternatively, to always track the latest `main` (rebuilds from source on every install, no URL to
-update per release):
+**Older/alternative install methods, still work if you need them:**
+
+Pin to an exact version:
+
+```bash
+python -m pip install --upgrade "im-internals==0.4.2"
+```
+
+Install from a tagged GitHub Release wheel directly (useful if PyPI is unreachable from a given
+machine, e.g. an isolated production host):
+
+```bash
+python -m pip install --upgrade "https://github.com/Iron-Mountain-CR/IM_internals/releases/download/<tag>/im_internals-<version>-py3-none-any.whl"
+```
+
+Track the latest `main` from source (rebuilds on every install, ahead of the latest PyPI release):
 
 ```bash
 python -m pip install --upgrade "git+https://github.com/Iron-Mountain-CR/IM_internals.git@main"
 ```
+
+See [CHANGELOG.md](CHANGELOG.md) for what changed in each release, including recent behavior fixes
+(`Sftp`/`Ftp` connect timeout + keepalive in v0.4.0, `api.timeout_decorator`'s thread-hang fix in
+v0.4.1).
 
 
 ## Quick Start
