@@ -1,4 +1,6 @@
-# pyproject.toml for im_internals — *internal-only helper toolkit*
+# pyproject.toml for im_internals — company helper toolkit, published on PyPI (2026-09-23) so
+# internal scripts can just `pip install --upgrade im-internals` instead of tracking GitHub release
+# tags. The source repo itself stays private; only the built package is public.
 
 [build-system]
 requires = ["setuptools>=68", "wheel", "setuptools-scm"]
@@ -23,12 +25,13 @@ authors = [
 # the private company-internal licence file lives at the project root
 license = { file = "LICENSE" }
 
-# mark as proprietary so PyPI classifiers do not mislead
+# "Private :: Do Not Upload" removed 2026-09-23 - PyPI rejects any upload carrying that classifier,
+# so it has to go for the package to be publishable at all. License stays proprietary (see LICENSE);
+# publishing the *package* doesn't change its license terms.
 classifiers = [
   "Programming Language :: Python :: 3",
   "License :: Other/Proprietary License",
   "Operating System :: OS Independent",
-  "Private :: Do Not Upload",
 ]
 
 keywords = ["internal", "helpers", "toolkit", "sftp", "database", "api"]
@@ -46,8 +49,8 @@ dependencies = [
 cfg-commands = "cfg_commands:main"
 
 [project.urls]
-Source  = "https://github.com/<company>/im-internals"
-Tracker = "https://github.com/<company>/im-internals/issues"
+Source  = "https://github.com/Iron-Mountain-CR/IM_internals"
+Tracker = "https://github.com/Iron-Mountain-CR/IM_internals/issues"
 
 # setuptools-specific knobs
 [tool.setuptools]
