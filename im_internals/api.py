@@ -22,14 +22,25 @@ Usage::
     api.send_json([{"key": "value"}])
 
 Every network-calling method is wrapped in `@retry_on_timeout` (retries `TimeoutException` up to 3
-times with exponential backoff) and `@timeout_decorator(seconds)` (runs the call in a worker thread
-and raises `TimeoutException` if it doesn't finish in time) — a `requests` call that hangs past its
-own `timeout=` kwarg is still bounded by this outer decorator.
+times with exponential backoff) and `@timeout_decorator(seconds)` (runs the call on a background
+daemon thread and raises `TimeoutException` if it doesn't finish in time).
+
+`timeout_decorator` used to run the call inside a `with ThreadPoolExecutor(max_workers=1) as exec:`
+block (fixed 2026-09-23). That looked equivalent but wasn't: a Python thread can't be killed once
+started, so a call that never actually returns left that worker thread running forever - and exiting
+the `with` block calls `exec.shutdown(wait=True)`, which blocks until every submitted thread
+finishes, timeout or not. `concurrent.futures.thread` also registers a process-wide `atexit` hook
+that joins *every* worker thread any `ThreadPoolExecutor` in the process ever created, so this could
+hang the whole interpreter at shutdown even for code that never touched this decorator's return
+value. The replacement spawns a plain `daemon=True` thread instead: `Thread.join(timeout)` still
+gives up after `timeout` seconds (execution stays just as sequential from the caller's side - the
+call already ran on a background thread before, this doesn't add new concurrency), but a daemon
+thread is never joined at interpreter exit, so an abandoned one can't block the process from exiting.
 """
 import logging
 import requests
 import functools
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
+import threading
 from typing import List, Dict, Any
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential, before_sleep_log
 
@@ -74,12 +85,27 @@ def timeout_decorator(timeout: int):
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            with ThreadPoolExecutor(max_workers=1) as exec:
-                fut = exec.submit(func, *args, **kwargs)
+            result_box = {}
+
+            def target():
                 try:
-                    return fut.result(timeout=timeout)
-                except FutureTimeout:
-                    raise TimeoutException(f"Timed out after {timeout}s")
+                    result_box["value"] = func(*args, **kwargs)
+                except BaseException as e:
+                    result_box["error"] = e
+
+            worker = threading.Thread(target=target, daemon=True)
+            worker.start()
+            worker.join(timeout)
+
+            if worker.is_alive():
+                # Call is still running (likely a stalled network call). We can't kill it, so we
+                # abandon it as a daemon thread - it won't block interpreter shutdown - and give
+                # up here instead of blocking the caller (and every caller of this decorator, and
+                # potentially interpreter exit) forever.
+                raise TimeoutException(f"Timed out after {timeout}s")
+            if "error" in result_box:
+                raise result_box["error"]
+            return result_box.get("value")
         return wrapper
 
     return decorator
